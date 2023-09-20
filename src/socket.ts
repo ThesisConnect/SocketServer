@@ -54,6 +54,7 @@ const app = express()
 const PORT = Number(process.env.PORT || 5050)
 const httpServer = http.createServer(app)
 
+
 app.use(cookieParser())
 
 app.use(express.json())
@@ -67,6 +68,13 @@ const io = new Server(httpServer, {
     origin: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true,
+  },
+  cookie: {
+    name: 'session',
+    httpOnly: true,
+    secure: true,
+    sameSite: 'none',
+    path: "/chat",
   },
 })
 
