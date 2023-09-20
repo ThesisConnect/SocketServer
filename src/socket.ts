@@ -69,13 +69,13 @@ const io = new Server(httpServer, {
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true,
   },
-  cookie: {
-    name: 'session',
-    httpOnly: true,
-    secure: true,
-    sameSite: 'none',
-    domain: ".railway.app"
-  },
+  // cookie: {
+  //   name: 'session',
+  //   httpOnly: true,
+  //   secure: true,
+  //   sameSite: 'none',
+  //   domain: ".railway.app"
+  // },
 })
 
 const chatNamespace = io.of('/chat')
