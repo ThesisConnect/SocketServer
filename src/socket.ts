@@ -53,14 +53,7 @@ connectWithRetry()
 const app = express()
 const PORT = Number(process.env.PORT || 5050)
 const httpServer = http.createServer(app)
-const corsOptions = {
-  origin: function (origin: any, callback: any) {
-    callback(null, true) // Allow all origins
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE'], // The HTTP methods you want to allow
-  credentials: true, // This allows session cookies to be sent and received
-}
-app.use(cors(corsOptions))
+
 app.use(cookieParser())
 
 app.use(express.json())
