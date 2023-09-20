@@ -94,7 +94,7 @@ const authMiddleware = (socket: Socket, next: (err?: Error) => void) => {
   }
 };
 
-chatNamespace.use(authMiddleware);
+// chatNamespace.use(authMiddleware);
 
 export interface File {
     type: 'file';
@@ -108,8 +108,8 @@ export interface File {
 }
 
 interface Message {
-    id: string;
-    username: string;
+    // id: string;
+    // username: string;
     content: string | File;
     type?: 'file' | 'text';
 }
@@ -119,16 +119,19 @@ let cache : Map<string, Message[]> = new Map(); //TODO: Schedule update cached m
 chatNamespace.on('connection', (socket: Socket) => {
   console.log('User connected to chat:', socket.id, socket.data.user);
 
-  socket.on('join room',  (chatId) => {
-    socket.join(chatId);
+  socket.on('join room', async (chatId) => {
+    console.log('User joined room:', chatId)
+    await socket.join(chatId);
+    console.log(chatNamespace.adapter.rooms)
     if (!cache.has(chatId)) {
         cache.set(chatId, []); //TODO: Pull 30 recent messages from database
     }
     socket.emit('room messages', cache.get(chatId)?.slice(-30));
   });
 
-  socket.on('leave room', (chatId) => {
-    socket.leave(chatId);
+  socket.on('leave room', async (chatId) => {
+    await socket.leave(chatId);
+    console.log('User left room:', chatId)
     if (chatNamespace.adapter.rooms.get(chatId)?.size === 0) {
         //TODO: Update cached messages to database
         cache.delete(chatId);
@@ -136,16 +139,18 @@ chatNamespace.on('connection', (socket: Socket) => {
   });
 
   socket.on('send message', (chatId, message) => {
+    console.log(chatNamespace.adapter.rooms)
+    console.log('User sent message:', message)
     const response : Message = {
-        id: socket.data.user.uid,
-        username: socket.data.user.email,
+        // id: socket.data.user.uid,
+        // username: socket.data.user.email,
         content: message,
         type: 'text',
     }
     let messages = cache.get(chatId) || [];
     messages.push(response);
     cache.set(chatId, (messages));
-    io.to(chatId).emit('receive message', response);
+    chatNamespace.to(chatId).emit('receive message', response);
   });
 
   socket.on('request messages', (chatId, timestamp) => {
