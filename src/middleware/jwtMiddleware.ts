@@ -9,6 +9,7 @@ const jwtMiddleware = async (
 ) => {
   console.log('jwtMiddleware')
   console.log('cookie', req.headers.cookie)
+  console.log('token', req.cookies)
   //   const token = req.cookies.session || ''
   //   console.log("token",token)
   // console.log("isdev",isDev)
