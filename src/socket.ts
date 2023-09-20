@@ -161,7 +161,7 @@ chatNamespace.on('connection', (socket: Socket) => {
   });
 });
 
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, "0.0.0.0", () => {
   console.log(
     chalk.greenBright.bold(
       `✔ ServerSocket started at ${chalk.underline.white(
