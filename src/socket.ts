@@ -72,7 +72,7 @@ chatNamespace.use(async (socket, next) => {
   try {
     const cookies = cookie.parse(socket.handshake.headers.cookie || '');
     const token = cookies.session;
-    console.log(token)
+    console.log("token",token)
     if (!token) throw new Error('No token found');
     // ... (Verify the token as in your JWT middleware)
     next();
