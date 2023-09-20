@@ -8,7 +8,9 @@ const jwtMiddleware = async (
   next: NextFunction,
 ) => {
   console.log('jwtMiddleware')
+  console.log('req.headers', req.headers)
   console.log('req.cookies', req.cookies)
+  console.log('req.signedCookies', req.signedCookies)
   //   const token = req.cookies.session || ''
   //   console.log("token",token)
   // console.log("isdev",isDev)
