@@ -60,11 +60,7 @@ app.get('/', (req: Request, res: Response) => {
 
 const io = new Server(httpServer, {
   cors: {
-    origin: [
-      "https://site-production-838a.up.railway.app",
-      "https://backend-production-a1af.up.railway.app",
-      "http://localhost:3000" 
-    ],
+    origin: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true,
   },
