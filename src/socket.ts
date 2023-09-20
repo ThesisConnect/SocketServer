@@ -68,7 +68,7 @@ const io = new Server(httpServer, {
 })
 
 const chatNamespace = io.of('/chat')
-io.use(async (socket, next) => {
+chatNamespace.use(async (socket, next) => {
   try {
     const cookies = cookie.parse(socket.handshake.headers.cookie || '');
     const token = cookies.session;
