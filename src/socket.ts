@@ -2,7 +2,7 @@ import {Server, Socket} from "socket.io";
 import express, {Request, Response} from 'express'
 import {uuidv4} from '@firebase/util'
 import cookieParser from "cookie-parser";
-import Chat from "./models/chat"
+import Chat, {IMessage} from "./models/chat"
 import User from "./models/user"
 import File from "./models/file"
 import dotenv from 'dotenv';
@@ -154,6 +154,43 @@ async function SaveCacheById(chatId: string) {
 
 SaveCache()
 
+async function MakeMessageData(messages: IMessage[]): Promise<Message[]> {
+    let idToName = new Map<string, string>()
+    return (await Promise.all(messages.map(async message => {
+        if (!idToName.has(message.user_id)) {
+            const user = await User.findById(message.user_id)
+            if (user) {
+                idToName.set(message.user_id, user.username)
+            }
+        }
+        const name = idToName.get(message.user_id) || ""
+        let content: string | File = message.content
+        if (message.type === "file") {
+            const file = await File.findById(message.content)
+            if (file) {
+                content = {
+                    name: file.name,
+                    fileID: file._id,
+                    size: file.size,
+                    type_file: file.file_type,
+                    lastModified: file.updatedAt?.toString() || "",
+                    link: file.url,
+                    memo: file.memo,
+                }
+            }else{
+                content = "Unknown file"
+            }
+        }
+        return {
+            _id: message._id,
+            uid: message.user_id,
+            username: name,
+            content: content,
+            type: message.type,
+        }
+    }))).filter(message => message !== undefined)
+}
+
 chatNamespace.on('connection', (socket: Socket) => {
     console.log('User connected to chat:', socket.id, socket.data.user);
 
@@ -165,39 +202,7 @@ chatNamespace.on('connection', (socket: Socket) => {
             let idToName = new Map<string, string>()
             const data = await Chat.findOne({_id: chatId}, {messages: {$slice: -30}})
             if (data) {
-                const messages = (await Promise.all(data.messages.map(async message => {
-                    if (!idToName.has(message.user_id)) {
-                        const user = await User.findById(message.user_id)
-                        if (user) {
-                            idToName.set(message.user_id, user.username)
-                        }
-                    }
-                    const name = idToName.get(message.user_id) || ""
-                    let content: string | File = message.content
-                    if (message.type === "file") {
-                        const file = await File.findById(message.content)
-                        if (file) {
-                            content = {
-                                name: file.name,
-                                fileID: file._id,
-                                size: file.size,
-                                type_file: file.file_type,
-                                lastModified: file.updatedAt?.toString() || "",
-                                link: file.url,
-                                memo: file.memo,
-                            }
-                        }else{
-                            content = "Unknown file"
-                        }
-                    }
-                    return {
-                        _id: message._id,
-                        uid: message.user_id,
-                        username: name,
-                        content: content,
-                        type: message.type,
-                    }
-                }))).filter(message => message !== undefined)
+                const messages = await MakeMessageData(data.messages)
                 cache.set(chatId, messages);
             }
         }
@@ -208,7 +213,6 @@ chatNamespace.on('connection', (socket: Socket) => {
         await socket.leave(chatId);
         console.log('User left room:', chatId)
         if (chatNamespace.adapter.rooms.get(chatId)?.size === 0) {
-            //TODO: Update cached messages to database
             await SaveCacheById(chatId)
             cache.delete(chatId);
         }
@@ -220,9 +224,7 @@ chatNamespace.on('connection', (socket: Socket) => {
         const response: Message = {
             _id: uuidv4(),
             uid: "OU3mOuC6dxg1nPtQKq74Ca9H8hx1",
-            //socket.data.user.uid,
             username: "llllllllllllllllllllllllllllll_l",
-            //socket.data.user.email,
             content: message,
             type: 'text',
         }
@@ -232,9 +234,14 @@ chatNamespace.on('connection', (socket: Socket) => {
         chatNamespace.to(chatId).emit('receive message', response);
     });
 
-    socket.on('request messages', (chatId, timestamp) => {
-        //TODO: Pull other 30 messages from database that have timestamp less than the timestamp received
-        //      then cache and send them back to the client
+    socket.on('request messages', async (chatId, timestamp) => {
+        const data = await Chat.findById(chatId, { "messages.createdAt": { $lt: new Date(timestamp) }})
+        if (data) {
+            let messages = cache.get(chatId) || [];
+            messages.push(...(await MakeMessageData(data.messages)))
+            cache.set(chatId, messages);
+        }
+        socket.emit('room messages', cache.get(chatId)?.slice(-30));
     });
 
     socket.on('disconnect', () => {
