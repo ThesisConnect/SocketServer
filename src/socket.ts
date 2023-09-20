@@ -74,7 +74,7 @@ const io = new Server(httpServer, {
     httpOnly: true,
     secure: true,
     sameSite: 'none',
-    path: "/chat",
+    domain: ".railway.app"
   },
 })
 
