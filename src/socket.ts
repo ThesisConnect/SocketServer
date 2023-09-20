@@ -7,6 +7,7 @@ import mongoose from 'mongoose';
 import chalk from 'chalk';
 import ms from 'ms';
 import http from 'http';
+import jwtMiddleware from "./middleware/jwtMiddleware";
 
 
 
@@ -68,34 +69,35 @@ const io = new Server(httpServer, {
 
 const chatNamespace = io.of('/chat');
 
-const authMiddleware = (socket: Socket, next: (err?: Error) => void) => {
-  const sessionCookie = socket.handshake.headers.cookie?.split('; ').find(row => row.startsWith('session'))?.split('=')[1];
+// const authMiddleware = (socket: Socket, next: (err?: Error) => void) => {
+//   console.log('Authenticating user...')
+//   const sessionCookie = socket.handshake.headers.cookie?.split('; ').find(row => row.startsWith('session'))?.split('=')[1];
 
-  if (sessionCookie) {
-    admin.auth().verifySessionCookie(sessionCookie, true)
-      .then(decodedToken => {
-        if (decodedToken.email_verified === false) {
-          return next(new Error('Email not verified'));
-        }
+//   if (sessionCookie) {
+//     admin.auth().verifySessionCookie(sessionCookie, true)
+//       .then(decodedToken => {
+//         if (decodedToken.email_verified === false) {
+//           return next(new Error('Email not verified'));
+//         }
 
-        socket.data.user = {
-          uid: decodedToken.uid,
-          email: decodedToken.email,
-        };
+//         socket.data.user = {
+//           uid: decodedToken.uid,
+//           email: decodedToken.email,
+//         };
 
-        next();
-      })
-      .catch(error => {
-        console.log(error);
-        next(new Error('Authentication error'));
-      });
-  } else {
-    next(new Error('No token found'));
-  }
-};
+//         next();
+//       })
+//       .catch(error => {
+//         console.log(error);
+//         next(new Error('Authentication error'));
+//       });
+//   } else {
+//     next(new Error('No token found'));
+//   }
+// };
 
 // chatNamespace.use(authMiddleware);
-
+io.engine.use(jwtMiddleware);
 export interface File {
     type: 'file';
     name: string;
