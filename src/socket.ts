@@ -96,7 +96,17 @@ chatNamespace.use(authMiddleware);
 
 chatNamespace.on('connection', (socket: Socket) => {
   console.log('User connected to chat:', socket.id, socket.data.user);
+  socket.on('join room', (chatId) => {
+    socket.join(chatId);
+  });
 
+  socket.on('leave room', (chatId) => {
+    socket.leave(chatId);
+  });
+
+  socket.on('send message', (chatId, message) => {
+    io.to(chatId).emit('receive message', message);
+  });
   socket.on('message', (msg: string) => {
     // Broadcast the message to other clients in the /chat namespace
     chatNamespace.emit('message', { user: socket.data.user.email, msg });
