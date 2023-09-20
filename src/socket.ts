@@ -205,7 +205,6 @@ chatNamespace.on('connection', (socket: Socket) => {
     await socket.join(chatId)
     console.log(chatNamespace.adapter.rooms)
     if (!cache.has(chatId)) {
-      let idToName = new Map<string, string>()
       const data = await Chat.findOne(
         { _id: chatId },
         { messages: { $slice: -30 } },
@@ -244,8 +243,9 @@ chatNamespace.on('connection', (socket: Socket) => {
   })
 
   socket.on('request messages', async (chatId, timestamp) => {
-    const data = await Chat.findById(chatId, {
-      'messages.createdAt': { $lt: new Date(timestamp) },
+    const data = await Chat.findOne(
+      { _id: chatId}, 
+      { 'messages.createdAt': { $lt: new Date(timestamp), $slice: -30 },
     })
     if (data) {
       let messages = cache.get(chatId) || []
