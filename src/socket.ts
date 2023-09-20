@@ -1,7 +1,6 @@
 import { Server, Socket } from 'socket.io'
 import express, { Request, Response } from 'express'
 import { uuidv4 } from '@firebase/util'
-import cookieParser from 'cookie-parser'
 import Chat, { IMessage } from './models/chat'
 import User from './models/user'
 import File from './models/file'
@@ -12,6 +11,7 @@ import ms from 'ms'
 import http from 'http'
 import jwtMiddleware from './middleware/jwtMiddleware'
 import cookie from 'cookie'
+import admin from './Authentication/FirebaseAdmin/admin'
 
 dotenv.config()
 
@@ -74,7 +74,14 @@ chatNamespace.use(async (socket, next) => {
     const token = cookies.session;
     console.log("token",token)
     if (!token) throw new Error('No token found');
-    // ... (Verify the token as in your JWT middleware)
+    const decoded = await admin.auth().verifySessionCookie(token, true)
+    if (decoded.email_verified === false) throw new Error('Email not verified!')
+    // console.log(decoded)
+    if (!decoded) throw new Error('Validation failed!')
+    socket.data.user = {
+      uid: decoded.uid,
+      email: decoded.email!,
+    }
     next();
   } catch (error) {
     console.log(error);
@@ -242,8 +249,8 @@ chatNamespace.on('connection', (socket: Socket) => {
     console.log('User sent message:', message)
     const response: Message = {
       _id: uuidv4(),
-      uid: 'OU3mOuC6dxg1nPtQKq74Ca9H8hx1',
-      username: 'llllllllllllllllllllllllllllll_l',
+      uid: socket.data.user.uid,
+      username: socket.data.user.email ,
       content: message,
       type: 'text',
     }
