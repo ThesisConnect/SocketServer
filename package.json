@@ -27,6 +27,7 @@
   "dependencies": {
     "@types/lodash": "^4.14.198",
     "chalk": "^4.1.2",
+    "cookie": "^0.5.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",

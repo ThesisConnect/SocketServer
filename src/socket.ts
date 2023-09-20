@@ -11,7 +11,7 @@ import chalk from 'chalk'
 import ms from 'ms'
 import http from 'http'
 import jwtMiddleware from './middleware/jwtMiddleware'
-import cors from 'cors' 
+import cookie from 'cookie'
 
 dotenv.config()
 
@@ -55,10 +55,6 @@ const PORT = Number(process.env.PORT || 5050)
 const httpServer = http.createServer(app)
 
 
-app.use(cookieParser())
-
-app.use(express.json())
-
 app.get('/', (req: Request, res: Response) => {
   res.send('<h1>Hello World</h1>')
 })
@@ -72,7 +68,19 @@ const io = new Server(httpServer, {
 })
 
 const chatNamespace = io.of('/chat')
-
+io.use(async (socket, next) => {
+  try {
+    const cookies = cookie.parse(socket.handshake.headers.cookie || '');
+    const token = cookies.session;
+    console.log(token)
+    if (!token) throw new Error('No token found');
+    // ... (Verify the token as in your JWT middleware)
+    next();
+  } catch (error) {
+    console.log(error);
+    next(new Error('Authentication error'));
+  }
+});
 // const authMiddleware = (socket: Socket, next: (err?: Error) => void) => {
 //   console.log('Authenticating user...')
 //   const sessionCookie = socket.handshake.headers.cookie?.split('; ').find(row => row.startsWith('session'))?.split('=')[1];
@@ -101,7 +109,7 @@ const chatNamespace = io.of('/chat')
 // };
 
 // chatNamespace.use(authMiddleware);
-io.engine.use(jwtMiddleware)
+// io.engine.use(jwtMiddleware)
 
 interface File {
   name: string
