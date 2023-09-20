@@ -1,13 +1,18 @@
 import { Server, Socket } from "socket.io";
 import express, { Request, Response } from 'express'
+import { uuidv4 } from '@firebase/util'
 import admin from "./Authentication/FirebaseAdmin/admin"; // Adjust the path to point to your Firebase admin setup
 import cookieParser from "cookie-parser";
+import Chat, {IChat} from "./models/chat"
+import User, {IUser} from "./models/user"
+import File, {IFile} from "./models/file"
 import dotenv from 'dotenv';
-import mongoose from 'mongoose';
+import mongoose, { model } from 'mongoose';
 import chalk from 'chalk';
 import ms from 'ms';
 import http from 'http';
 import jwtMiddleware from "./middleware/jwtMiddleware";
+
 
 
 
@@ -110,13 +115,47 @@ export interface File {
 }
 
 interface Message {
-    // id: string;
-    // username: string;
+    _id: string; 
+    uid: string;
+    username: string;
     content: string | File;
-    type?: 'file' | 'text';
+    type: 'file' | 'text';
 }
 
 let cache : Map<string, Message[]> = new Map(); //TODO: Schedule update cached messages to database every one minute
+
+async function SaveCache() {
+    try {
+    for (const [chatId] of cache) {
+        await SaveCacheById(chatId)
+    }
+    setTimeout(SaveCache, 60*1000);
+  } catch(err) {
+      console.log(err)
+  }
+}
+
+async function SaveCacheById(chatId: string) {
+    try { 
+    const messages = cache.get(chatId) || []
+    if (messages.length == 0) return
+    const data =  messages.map(Message => {
+        return {
+          _id: Message._id,
+          user_id: Message.uid,
+          content: Message.content instanceof File ? Message.content.link : Message.content,
+          type: Message.type
+        }
+    })
+    await Chat.findByIdAndUpdate(chatId, {
+        $addToSet: { messages: data },
+    })
+  } catch (err) {
+      console.log(err)
+  }
+}
+
+SaveCache()
 
 chatNamespace.on('connection', (socket: Socket) => {
   console.log('User connected to chat:', socket.id, socket.data.user);
@@ -126,7 +165,48 @@ chatNamespace.on('connection', (socket: Socket) => {
     await socket.join(chatId);
     console.log(chatNamespace.adapter.rooms)
     if (!cache.has(chatId)) {
-        cache.set(chatId, []); //TODO: Pull 30 recent messages from database
+      let idToName = new Map<string, string>()
+      const data = await Chat.findOne({_id: chatId}, {messages: {$slice: -30}})
+        if (data){
+          const pomdata = (await Promise.all(data.messages.map(async message => {
+            if (!idToName.has(message.user_id)) {
+              const user = await User.findById(message.user_id)
+              if (user) {
+                idToName.set(message.user_id, user.username)
+              }
+            }
+            const name = idToName.get(message.user_id)
+            if (name){
+              let content : string | File = message.content
+              if (message.type === "file") {
+                const file = await File.findById(message.content)
+                if (file) {
+                  content = {
+                    type: "file",
+                    name: file.name,
+                    fileID: file._id,
+                    size: file.size,
+                    type_file: file.file_type,
+                    lastModified: file.updatedAt?.toString() || "",
+                    link: file.url,
+                    memo: file.memo,
+                  }
+                }
+              }
+              return {
+                _id: message._id,
+                uid: message.user_id,
+                username: name,
+                content: content,
+                type: message.type,
+              }
+            }
+
+          }))).filter(message => message !== undefined)
+          // cache.set(chatId, pomdata); //TODO: Pull 30 recent messages from database
+
+        }
+        
     }
     socket.emit('room messages', cache.get(chatId)?.slice(-30));
   });
@@ -136,6 +216,7 @@ chatNamespace.on('connection', (socket: Socket) => {
     console.log('User left room:', chatId)
     if (chatNamespace.adapter.rooms.get(chatId)?.size === 0) {
         //TODO: Update cached messages to database
+        await SaveCacheById(chatId)
         cache.delete(chatId);
     }
   });
@@ -144,8 +225,11 @@ chatNamespace.on('connection', (socket: Socket) => {
     console.log(chatNamespace.adapter.rooms)
     console.log('User sent message:', message)
     const response : Message = {
-        // id: socket.data.user.uid,
-        // username: socket.data.user.email,
+        _id: uuidv4(),
+        uid: "OU3mOuC6dxg1nPtQKq74Ca9H8hx1",
+        //socket.data.user.uid,
+        username: "llllllllllllllllllllllllllllll_l",
+        //socket.data.user.email,
         content: message,
         type: 'text',
     }
