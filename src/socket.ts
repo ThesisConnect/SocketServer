@@ -1,5 +1,5 @@
 import { Server, Socket } from "socket.io";
-import express, { Request } from "express";
+import express, { Request, Response } from 'express'
 import admin from "./Authentication/FirebaseAdmin/admin"; // Adjust the path to point to your Firebase admin setup
 import cookieParser from "cookie-parser";
 import dotenv from 'dotenv';
@@ -52,6 +52,11 @@ const PORT = Number(process.env.PORT || 5050)
 const httpServer = http.createServer(app);
 
 app.use(cookieParser());
+
+app.use(express.json())
+app.get('/', (req: Request, res: Response) => {
+    res.send('<h1>Hello World</h1>')
+})
 
 const io = new Server(httpServer, {
   cors: {
