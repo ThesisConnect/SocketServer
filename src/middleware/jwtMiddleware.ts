@@ -7,10 +7,10 @@ const jwtMiddleware = async (
   res: Response,
   next: NextFunction,
 ) => {
-console.log("jwtMiddleware")
-console.log("req.cookies",req.cookies)
-//   const token = req.cookies.session || ''
-//   console.log("token",token)
+  console.log('jwtMiddleware')
+  console.log('req.cookies', req.cookies)
+  //   const token = req.cookies.session || ''
+  //   console.log("token",token)
   // console.log("isdev",isDev)
   try {
     // // console.log("decode")
