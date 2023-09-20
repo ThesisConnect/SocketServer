@@ -68,7 +68,7 @@ const chatNamespace = io.of('/chat');
 
 const authMiddleware = (socket: Socket, next: (err?: Error) => void) => {
   const sessionCookie = socket.handshake.headers.cookie?.split('; ').find(row => row.startsWith('session'))?.split('=')[1];
-  
+
   if (sessionCookie) {
     admin.auth().verifySessionCookie(sessionCookie, true)
       .then(decodedToken => {
@@ -94,25 +94,67 @@ const authMiddleware = (socket: Socket, next: (err?: Error) => void) => {
 
 chatNamespace.use(authMiddleware);
 
+export interface File {
+    type: 'file';
+    name: string;
+    fileID: string;
+    size: number;
+    type_file: string;
+    lastModified: string;
+    link: string;
+    memo?: string;
+}
+
+interface Message {
+    id: string;
+    username: string;
+    content: string | File;
+    type?: 'file' | 'text';
+}
+
+let cache : Map<string, Message[]> = new Map(); //TODO: Schedule update cached messages to database every one minute
+
 chatNamespace.on('connection', (socket: Socket) => {
   console.log('User connected to chat:', socket.id, socket.data.user);
-  socket.on('join room', (chatId) => {
+
+  socket.on('join room',  (chatId) => {
     socket.join(chatId);
+    if (!cache.has(chatId)) {
+        cache.set(chatId, []); //TODO: Pull 30 recent messages from database
+    }
+    socket.emit('room messages', cache.get(chatId)?.slice(-30));
   });
 
   socket.on('leave room', (chatId) => {
     socket.leave(chatId);
+    if (chatNamespace.adapter.rooms.get(chatId)?.size === 0) {
+        //TODO: Update cached messages to database
+        cache.delete(chatId);
+    }
   });
 
   socket.on('send message', (chatId, message) => {
-    io.to(chatId).emit('receive message', message);
+    const response : Message = {
+        id: socket.data.user.uid,
+        username: socket.data.user.email,
+        content: message,
+        type: 'text',
+    }
+    let messages = cache.get(chatId) || [];
+    messages.push(response);
+    cache.set(chatId, (messages));
+    io.to(chatId).emit('receive message', response);
   });
-  socket.on('message', (msg: string) => {
-    // Broadcast the message to other clients in the /chat namespace
-    chatNamespace.emit('message', { user: socket.data.user.email, msg });
+
+  socket.on('request messages', (chatId, timestamp) => {
+    //TODO: Pull other 30 messages from database that have timestamp less than the timestamp received
+    //      then cache and send them back to the client
+  });
+
+  socket.on('disconnect', () => {
+    console.log('User disconnected from chat:', socket.id);
   });
 });
-
 
 httpServer.listen(PORT, () => {
   console.log(
