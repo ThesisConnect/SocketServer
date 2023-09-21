@@ -10,6 +10,7 @@ import Message from '../models/message'
 
 export interface IChat {
   _id: string
+  folder_id: string
   messages: string[]
 }
 
@@ -23,6 +24,11 @@ const chatSchema = new Schema<IChatDocument, IChatDocument>(
     _id: {
       type: String,
       default: () => uuidv4(),
+    },
+    folder_id: {
+      type: String,
+      ref: 'Folder',
+      required: true,
     },
     messages: {
       type: [String],

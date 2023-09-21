@@ -25,7 +25,7 @@ const fileSchema = new Schema<IFileDocument, IFileDocument>(
   {
     _id: {
       type: String,
-      default: () => uuidv4(),
+      required: true,
     },
     name: {
       type: String,

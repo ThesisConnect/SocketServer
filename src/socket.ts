@@ -3,17 +3,17 @@ import express, { Request, Response } from 'express'
 import { uuidv4 } from '@firebase/util'
 import Chat from './models/chat'
 import User from './models/user'
+import user from './models/user'
 import File from './models/file'
 import dotenv from 'dotenv'
 import mongoose from 'mongoose'
 import chalk from 'chalk'
 import ms from 'ms'
 import http from 'http'
-import jwtMiddleware from './middleware/jwtMiddleware'
 import cookie from 'cookie'
 import admin from './Authentication/FirebaseAdmin/admin'
-import user from './models/user'
 import Message, { IMessageDocument } from './models/message'
+import Folder from './models/folder'
 
 dotenv.config()
 
@@ -157,30 +157,57 @@ async function SaveCache() {
 
 async function SaveCacheById(chatId: string) {
   try {
-    const messages = cache.get(chatId) || []
-    if (messages.length == 0) return
-    const data = messages.map((message) => {
-      return {
-        _id: message._id,
+    const data = cache.get(chatId) || []
+    if (data.length == 0) return
+    let messages = []
+    let files = []
+    for (const d of data) {
+      messages.push({
+        _id: d._id,
         chat_id: chatId,
-        user_id: message.uid,
-        content:
-          typeof message.content !== 'string'
-            ? message.content.fileID
-            : message.content,
-        type: message.type,
-        createdAt: message.createdAt,
-        updatedAt: message.updatedAt,
+        user_id: d.uid,
+        content: typeof d.content !== 'string' ? d.content.fileID : d.content,
+        type: d.type,
+        createdAt: d.createdAt,
+        updatedAt: d.updatedAt,
+      })
+      if (typeof d.content !== 'string') {
+        files.push({
+          _id: d.content.fileID,
+          name: d.content.name,
+          url: d.content.link,
+          size: d.content.size,
+          file_type: d.content.type_file,
+          memo: d.content.memo,
+        })
       }
-    })
-    await Chat.findByIdAndUpdate(chatId, {
-      $addToSet: {
-        messages: data.map((message) => {
-          return message._id
-        }),
-      },
-    })
-    await Message.insertMany(data, { ordered: false })
+    }
+    const chat = await Chat.findById(chatId)
+    if (chat) {
+      await chat.updateOne({
+        $addToSet: {
+          messages: messages.map((message) => {
+            return message._id
+          }),
+        },
+      })
+      try {
+        await Message.insertMany(messages, { ordered: false })
+      } catch (err) {}
+      const folder = await Folder.findById(chat.folder_id)
+      if (folder) {
+        await folder.updateOne({
+          $addToSet: {
+            files: files.map((file) => {
+              return file._id
+            }),
+          },
+        })
+        try {
+          await File.insertMany(files, { ordered: false })
+        } catch (err) {}
+      }
+    }
   } catch (err) {}
 }
 
@@ -264,25 +291,14 @@ chatNamespace.on('connection', (socket: Socket) => {
 
     let content: string | File_front = message
     if (typeof content !== 'string') {
-      const createFile = await File.create({
+      content = {
         name: message.name,
-        url: message.link,
+        fileID: message.fileID,
         size: message.size,
-        file_type: message.type_file,
+        type_file: message.type_file,
+        lastModified: message.lastModified,
+        link: message.link,
         memo: message.memo,
-      })
-      if (createFile) {
-        content = {
-          name: message.name,
-          fileID: createFile._id,
-          size: message.size,
-          type_file: message.type_file,
-          lastModified: message.lastModified,
-          link: message.link,
-          memo: message.memo,
-        }
-      } else {
-        content = 'Unknown file'
       }
     }
     const response: Message_front = {
