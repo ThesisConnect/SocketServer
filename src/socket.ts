@@ -12,8 +12,7 @@ import http from 'http'
 import jwtMiddleware from './middleware/jwtMiddleware'
 import cookie from 'cookie'
 import admin from './Authentication/FirebaseAdmin/admin'
-import user from "./models/user";
-import cors from 'cors'
+
 dotenv.config()
 
 const MAX_RETRIES = 10
@@ -60,7 +59,6 @@ const corsOptions = {
 const app = express()
 const PORT = Number(process.env.PORT || 5050)
 const httpServer = http.createServer(app)
-app.use(cors(corsOptions))
 
 app.get('/', (req: Request, res: Response) => {
   res.send('<h1>Hello World</h1>')
@@ -85,12 +83,9 @@ chatNamespace.use(async (socket, next) => {
     if (decoded.email_verified === false) throw new Error('Email not verified!')
     // console.log(decoded)
     if (!decoded) throw new Error('Validation failed!')
-    const u = await user.findById(decoded.uid)
-    if (!u) throw new Error('Invalid user!')
     socket.data.user = {
       uid: decoded.uid,
       email: decoded.email!,
-      username: u.username
     }
     next();
   } catch (error) {
@@ -260,7 +255,7 @@ chatNamespace.on('connection', (socket: Socket) => {
     const response: Message = {
       _id: uuidv4(),
       uid: socket.data.user.uid,
-      username: socket.data.user.username,
+      username: socket.data.user.email ,
       content: message,
       type: 'text',
     }
