@@ -150,7 +150,7 @@ async function SaveCache() {
     for (const [chatId] of cache) {
       await SaveCacheById(chatId)
     }
-    setTimeout(SaveCache, 60 * 1000)
+    setTimeout(SaveCache, 1000)
   } catch (err) {
     console.log(err)
   }
@@ -174,12 +174,12 @@ async function SaveCacheById(chatId: string) {
         updatedAt: message.updatedAt,
       }
     })
-    await Message.insertMany(data)
     await Chat.findByIdAndUpdate(chatId, {
-      $addToSet: { messages: data },
-    })
+      $addToSet: { messages: data.map((message) => {return message._id}) 
+    }})
+    await Message.insertMany(data, { ordered: false})
   } catch (err) {
-    console.log(err)
+      
   }
 }
 
@@ -238,7 +238,7 @@ chatNamespace.on('connection', (socket: Socket) => {
     if (!cache.has(chatId)) {
       const chat = await Chat.findById(chatId).populate<{messages: IMessageDocument[]}>('messages').slice('messages', -30)
       if (chat) {
-        cache.set(chatId, await MakeMessageData(chat.messages))
+        cache.set(chatId, await MakeMessageData(chat.messages || []))
       }
     }
     socket.emit('room messages', cache.get(chatId)?.slice(-30))
@@ -286,7 +286,7 @@ chatNamespace.on('connection', (socket: Socket) => {
       uid: socket.data.user.uid,
       username: socket.data.user.username,
       content: content,
-      type: content instanceof String ? 'text' : 'file',
+      type: typeof content === "string" ? 'text' : 'file',
       createdAt: new Date(),
       updatedAt: new Date(),
     }
