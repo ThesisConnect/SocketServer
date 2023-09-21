@@ -6,21 +6,11 @@ import {
   SchemaTimestampsConfig,
 } from 'mongoose'
 import { uuidv4 } from '@firebase/util'
-
-export interface IMessage {
-  _id: string
-  user_id: string
-  content: string
-  type: 'text' | 'file'
-}
-
-interface IMessageDocument extends IMessage, Document, SchemaTimestampsConfig {
-  _id: string
-}
+import Message from '../models/message'
 
 export interface IChat {
   _id: string
-  messages: IMessage[]
+  messages: string[]
 }
 
 interface IChatDocument extends IChat, Document, SchemaTimestampsConfig {
@@ -35,30 +25,20 @@ const chatSchema = new Schema<IChatDocument, IChatDocument>(
       default: () => uuidv4(),
     },
     messages: {
-      type: [
-        {
-          _id: {
-            type: String,
-            default: () => uuidv4(),
-          },
-          user_id: {
-            type: String,
-            required: true,
-          },
-          content: {
-            type: String,
-            required: true,
-          },
-          type: {
-            type: String,
-            required: true,
-          },
-        },
-      ],
+      type: [String],
+      ref: 'Message',
       default: [],
     },
   },
   { timestamps: true },
 )
+
+chatSchema.pre('deleteOne', { document: true }, async function (next) {
+  try{
+    await Message.deleteMany({ chat_id: this._id })
+  } catch (err) {
+    console.log(err)
+  }
+})
 
 export default model<IChatDocument, IChatModel>('Chat', chatSchema)
