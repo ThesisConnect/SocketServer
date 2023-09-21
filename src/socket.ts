@@ -248,15 +248,39 @@ chatNamespace.on('connection', (socket: Socket) => {
     }
   })
 
-  socket.on('send message', (chatId, message) => {
+  socket.on('send message', async (chatId, message) => {
     console.log(chatNamespace.adapter.rooms)
     console.log('User sent message:', message)
+    let content: string | File = message
+    if(!(message instanceof String)){
+      const createFile = await File.create({
+        name: message.name,
+        url: message.link,
+        size: message.size,
+        file_type: message.type_file,
+        memo: message.memo,
+      })
+      if(createFile) {
+        content = {
+          name: message.name,
+          fileID: createFile._id,
+          size: message.size,
+          type_file: message.type_file,
+          lastModified: message.lastModified,
+          link: message.link,
+          memo: message.memo,
+        }
+      }
+      else{
+        content = 'Unknown file'
+      }
+    }
     const response: Message = {
       _id: uuidv4(),
       uid: socket.data.user.uid,
       username: socket.data.user.username,
-      content: message,
-      type: 'text',
+      content: content,
+      type: content instanceof String ? 'text' : 'file',
     }
     let messages = cache.get(chatId) || []
     messages.push(response)
