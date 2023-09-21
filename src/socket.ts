@@ -12,8 +12,8 @@ import http from 'http'
 import jwtMiddleware from './middleware/jwtMiddleware'
 import cookie from 'cookie'
 import admin from './Authentication/FirebaseAdmin/admin'
-import user from "./models/user";
-import Message ,{IMessageDocument} from "./models/message";
+import user from './models/user'
+import Message, { IMessageDocument } from './models/message'
 
 dotenv.config()
 
@@ -56,7 +56,6 @@ const app = express()
 const PORT = Number(process.env.PORT || 5050)
 const httpServer = http.createServer(app)
 
-
 app.get('/', (req: Request, res: Response) => {
   res.send('<h1>Hello World</h1>')
 })
@@ -72,10 +71,10 @@ const io = new Server(httpServer, {
 const chatNamespace = io.of('/chat')
 chatNamespace.use(async (socket, next) => {
   try {
-    const cookies = cookie.parse(socket.handshake.headers.cookie || '');
-    const token = cookies.session;
-    console.log("token", token)
-    if (!token) throw new Error('No token found');
+    const cookies = cookie.parse(socket.handshake.headers.cookie || '')
+    const token = cookies.session
+    console.log('token', token)
+    if (!token) throw new Error('No token found')
     const decoded = await admin.auth().verifySessionCookie(token, true)
     if (decoded.email_verified === false) throw new Error('Email not verified!')
     // console.log(decoded)
@@ -85,14 +84,14 @@ chatNamespace.use(async (socket, next) => {
     socket.data.user = {
       uid: decoded.uid,
       email: decoded.email!,
-      username: u.username
+      username: u.username,
     }
-    next();
+    next()
   } catch (error) {
-    console.log(error);
-    next(new Error('Authentication error'));
+    console.log(error)
+    next(new Error('Authentication error'))
   }
-});
+})
 // const authMiddleware = (socket: Socket, next: (err?: Error) => void) => {
 //   console.log('Authenticating user...')
 //   const sessionCookie = socket.handshake.headers.cookie?.split('; ').find(row => row.startsWith('session'))?.split('=')[1];
@@ -139,8 +138,8 @@ interface Message_front {
   username: string
   content: string | File_front
   type: 'file' | 'text'
-  createdAt: Date,
-  updatedAt: Date,
+  createdAt: Date
+  updatedAt: Date
 }
 
 let cache: Map<string, Message_front[]> = new Map() //TODO: Schedule update cached messages to database every one minute
@@ -150,7 +149,7 @@ async function SaveCache() {
     for (const [chatId] of cache) {
       await SaveCacheById(chatId)
     }
-    setTimeout(SaveCache, 1000)
+    setTimeout(SaveCache, 60 * 1000)
   } catch (err) {
     console.log(err)
   }
@@ -166,8 +165,8 @@ async function SaveCacheById(chatId: string) {
         chat_id: chatId,
         user_id: message.uid,
         content:
-          typeof message.content !== "string"
-            ? message.content.link
+          typeof message.content !== 'string'
+            ? message.content.fileID
             : message.content,
         type: message.type,
         createdAt: message.createdAt,
@@ -175,17 +174,21 @@ async function SaveCacheById(chatId: string) {
       }
     })
     await Chat.findByIdAndUpdate(chatId, {
-      $addToSet: { messages: data.map((message) => {return message._id}) 
-    }})
-    await Message.insertMany(data, { ordered: false})
-  } catch (err) {
-      
-  }
+      $addToSet: {
+        messages: data.map((message) => {
+          return message._id
+        }),
+      },
+    })
+    await Message.insertMany(data, { ordered: false })
+  } catch (err) {}
 }
 
 SaveCache()
 
-async function MakeMessageData(messages: IMessageDocument[]): Promise<Message_front[]> {
+async function MakeMessageData(
+  messages: IMessageDocument[],
+): Promise<Message_front[]> {
   let idToName = new Map<string, string>()
   return (
     await Promise.all(
@@ -236,7 +239,9 @@ chatNamespace.on('connection', (socket: Socket) => {
     await socket.join(chatId)
     console.log(chatNamespace.adapter.rooms)
     if (!cache.has(chatId)) {
-      const chat = await Chat.findById(chatId).populate<{messages: IMessageDocument[]}>('messages').slice('messages', -30)
+      const chat = await Chat.findById(chatId)
+        .populate<{ messages: IMessageDocument[] }>('messages')
+        .slice('messages', -30)
       if (chat) {
         cache.set(chatId, await MakeMessageData(chat.messages || []))
       }
@@ -256,9 +261,9 @@ chatNamespace.on('connection', (socket: Socket) => {
   socket.on('send message', async (chatId, message) => {
     console.log(chatNamespace.adapter.rooms)
     console.log('User sent message:', message)
-    
+
     let content: string | File_front = message
-    if (typeof content !== "string") {
+    if (typeof content !== 'string') {
       const createFile = await File.create({
         name: message.name,
         url: message.link,
@@ -266,7 +271,7 @@ chatNamespace.on('connection', (socket: Socket) => {
         file_type: message.type_file,
         memo: message.memo,
       })
-      if(createFile) {
+      if (createFile) {
         content = {
           name: message.name,
           fileID: createFile._id,
@@ -276,8 +281,7 @@ chatNamespace.on('connection', (socket: Socket) => {
           link: message.link,
           memo: message.memo,
         }
-      }
-      else{
+      } else {
         content = 'Unknown file'
       }
     }
@@ -286,7 +290,7 @@ chatNamespace.on('connection', (socket: Socket) => {
       uid: socket.data.user.uid,
       username: socket.data.user.username,
       content: content,
-      type: typeof content === "string" ? 'text' : 'file',
+      type: typeof content === 'string' ? 'text' : 'file',
       createdAt: new Date(),
       updatedAt: new Date(),
     }
@@ -297,7 +301,10 @@ chatNamespace.on('connection', (socket: Socket) => {
   })
 
   socket.on('request messages', async (chatId, timestamp) => {
-    const chat = await Chat.findById(chatId).populate<{messages: IMessageDocument[]}>('messages').lt('messages.createdAt', new Date(timestamp)).slice('messages', -30)
+    const chat = await Chat.findById(chatId)
+      .populate<{ messages: IMessageDocument[] }>('messages')
+      .lt('messages.createdAt', new Date(timestamp))
+      .slice('messages', -30)
     if (chat) {
       let messages = cache.get(chatId) || []
       messages.push(...(await MakeMessageData(chat.messages)))

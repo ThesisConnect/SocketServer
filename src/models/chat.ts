@@ -34,7 +34,7 @@ const chatSchema = new Schema<IChatDocument, IChatDocument>(
 )
 
 chatSchema.pre('deleteOne', { document: true }, async function (next) {
-  try{
+  try {
     await Message.deleteMany({ chat_id: this._id })
   } catch (err) {
     console.log(err)
