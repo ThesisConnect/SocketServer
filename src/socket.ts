@@ -13,7 +13,7 @@ import jwtMiddleware from './middleware/jwtMiddleware'
 import cookie from 'cookie'
 import admin from './Authentication/FirebaseAdmin/admin'
 import user from "./models/user";
-
+import cors from 'cors'
 dotenv.config()
 
 const MAX_RETRIES = 10
@@ -50,11 +50,17 @@ const connectWithRetry = () => {
 }
 
 connectWithRetry()
-
+const corsOptions = {
+  origin: function (origin: any, callback: any) {
+    callback(null, true) // Allow all origins
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE'], // The HTTP methods you want to allow
+  credentials: true, // This allows session cookies to be sent and received
+}
 const app = express()
 const PORT = Number(process.env.PORT || 5050)
 const httpServer = http.createServer(app)
-
+app.use(cors(corsOptions))
 
 app.get('/', (req: Request, res: Response) => {
   res.send('<h1>Hello World</h1>')
