@@ -73,7 +73,7 @@ chatNamespace.use(async (socket, next) => {
   try {
     const cookies = cookie.parse(socket.handshake.headers.cookie || '');
     const token = cookies.session;
-    console.log("token",token)
+    console.log("token", token)
     if (!token) throw new Error('No token found');
     const decoded = await admin.auth().verifySessionCookie(token, true)
     if (decoded.email_verified === false) throw new Error('Email not verified!')
@@ -122,7 +122,7 @@ chatNamespace.use(async (socket, next) => {
 // chatNamespace.use(authMiddleware);
 // io.engine.use(jwtMiddleware)
 
-interface File {
+interface File_front {
   name: string
   fileID: string
   size: number
@@ -136,7 +136,7 @@ interface Message {
   _id: string
   uid: string
   username: string
-  content: string | File
+  content: string | File_front
   type: 'file' | 'text'
 }
 
@@ -162,7 +162,7 @@ async function SaveCacheById(chatId: string) {
         _id: Message._id,
         user_id: Message.uid,
         content:
-          Message.content instanceof File
+          typeof Message.content !== "string"
             ? Message.content.link
             : Message.content,
         type: Message.type,
@@ -190,7 +190,7 @@ async function MakeMessageData(messages: IMessage[]): Promise<Message[]> {
           }
         }
         const name = idToName.get(message.user_id) || ''
-        let content: string | File = message.content
+        let content: string | File_front = message.content
         if (message.type === 'file') {
           const file = await File.findById(message.content)
           if (file) {
@@ -248,20 +248,58 @@ chatNamespace.on('connection', (socket: Socket) => {
     }
   })
 
-  socket.on('send message', (chatId, message) => {
+  socket.on('send message', async (chatId, message) => {
     console.log(chatNamespace.adapter.rooms)
     console.log('User sent message:', message)
+    
+    let content: string | File_front = message
+    if (typeof content !== "string") {
+      const createFile = await File.create({
+        name: message.name,
+        url: message.link,
+        size: message.size,
+        file_type: message.type_file,
+        memo: message.memo,
+      })
+      if(createFile) {
+        content = {
+          name: message.name,
+          fileID: createFile._id,
+          size: message.size,
+          type_file: message.type_file,
+          lastModified: message.lastModified,
+          link: message.link,
+          memo: message.memo,
+        }
+      }
+      else{
+        content = 'Unknown file'
+      }
+    }
     const response: Message = {
       _id: uuidv4(),
       uid: socket.data.user.uid,
       username: socket.data.user.username,
-      content: message,
-      type: 'text',
+      content: content,
+      type: content instanceof String ? 'text' : 'file',
     }
     let messages = cache.get(chatId) || []
     messages.push(response)
     cache.set(chatId, messages)
     chatNamespace.to(chatId).emit('receive message', response)
+
+    // const response: Message = {
+    //   _id: uuidv4(),
+    //   uid: socket.data.user.uid,
+    //   username: socket.data.user.username,
+    //   content: message,
+    //   type: 'text',
+    // }
+    // let messages = cache.get(chatId) || []
+    // messages.push(response)
+    // cache.set(chatId, messages)
+    // chatNamespace.to(chatId).emit('receive message', response)
+
   })
 
   socket.on('request messages', async (chatId, timestamp) => {
