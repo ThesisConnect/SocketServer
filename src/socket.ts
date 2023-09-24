@@ -160,7 +160,6 @@ async function SaveCacheById(chatId: string) {
     const data = cache.get(chatId) || []
     if (data.length == 0) return
     let messages = []
-    let files = []
     for (const d of data) {
       messages.push({
         _id: d._id,
@@ -171,16 +170,6 @@ async function SaveCacheById(chatId: string) {
         createdAt: d.createdAt,
         updatedAt: d.updatedAt,
       })
-      if (typeof d.content !== 'string') {
-        files.push({
-          _id: d.content.fileID,
-          name: d.content.name,
-          url: d.content.link,
-          size: d.content.size,
-          file_type: d.content.type_file,
-          memo: d.content.memo,
-        })
-      }
     }
     const chat = await Chat.findById(chatId)
     if (chat) {
@@ -194,19 +183,6 @@ async function SaveCacheById(chatId: string) {
       try {
         await Message.insertMany(messages, { ordered: false })
       } catch (err) {}
-      const folder = await Folder.findById(chat.folder_id)
-      if (folder) {
-        await folder.updateOne({
-          $addToSet: {
-            files: files.map((file) => {
-              return file._id
-            }),
-          },
-        })
-        try {
-          await File.insertMany(files, { ordered: false })
-        } catch (err) {}
-      }
     }
   } catch (err) {}
 }
@@ -291,14 +267,36 @@ chatNamespace.on('connection', (socket: Socket) => {
 
     let content: string | File_front = message
     if (typeof content !== 'string') {
-      content = {
-        name: message.name,
-        fileID: message.fileID,
-        size: message.size,
-        type_file: message.type_file,
-        lastModified: message.lastModified,
-        link: message.link,
-        memo: message.memo,
+      content = 'Unknown file'
+      const chat = await Chat.findById(chatId)
+      if (chat) {
+        const folder = await Folder.findById(chat.folder_id)
+        if (folder) {
+          const result = await File.create({
+            _id: message.fileID,
+            name: message.name,
+            url: message.link,
+            size: message.size,
+            file_type: message.type_file,
+            memo: message.memo,
+          })
+          if(result){
+            await folder.updateOne({
+              $addToSet: {
+                files: message.fileID,
+              },
+            })
+            content = {
+              name: message.name,
+              fileID: message.fileID,
+              size: message.size,
+              type_file: message.type_file,
+              lastModified: message.lastModified,
+              link: message.link,
+              memo: message.memo,
+            }
+          }
+        }
       }
     }
     const response: Message_front = {
@@ -306,7 +304,7 @@ chatNamespace.on('connection', (socket: Socket) => {
       uid: socket.data.user.uid,
       username: socket.data.user.username,
       content: content,
-      type: typeof content === 'string' ? 'text' : 'file',
+      type: message.type,
       createdAt: new Date(),
       updatedAt: new Date(),
     }
