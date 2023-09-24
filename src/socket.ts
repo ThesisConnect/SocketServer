@@ -280,11 +280,14 @@ chatNamespace.on('connection', (socket: Socket) => {
             memo: message.memo,
           })
           if(result){
-            await folder.updateOne({
+            const result_folder = await folder.updateOne({
               $addToSet: {
                 files: message.fileID,
               },
             })
+            if (result_folder) {
+              chatNamespace.to(chatId).emit('update folder')
+            }
             content = {
               name: message.name,
               fileID: message.fileID,
