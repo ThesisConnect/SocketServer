@@ -73,7 +73,7 @@ chatNamespace.use(async (socket, next) => {
   try {
     const cookies = cookie.parse(socket.handshake.headers.cookie || '')
     const token = cookies.session
-    console.log('token', token)
+    // console.log('token', token)
     if (!token) throw new Error('No token found')
     const decoded = await admin.auth().verifySessionCookie(token, true)
     if (decoded.email_verified === false) throw new Error('Email not verified!')
@@ -149,7 +149,6 @@ async function SaveCache() {
     for (const [chatId] of cache) {
       await SaveCacheById(chatId)
     }
-    setTimeout(SaveCache, 60 * 1000)
   } catch (err) {
     console.log(err)
   }
@@ -187,7 +186,7 @@ async function SaveCacheById(chatId: string) {
   } catch (err) {}
 }
 
-SaveCache()
+setInterval(SaveCache, 60 * 1000)
 
 async function MakeMessageData(
   messages: IMessageDocument[],
@@ -304,7 +303,7 @@ chatNamespace.on('connection', (socket: Socket) => {
       uid: socket.data.user.uid,
       username: socket.data.user.username,
       content: content,
-      type: message.type,
+      type: (typeof content) === 'string' ? 'text' : 'file' ,
       createdAt: new Date(),
       updatedAt: new Date(),
     }
