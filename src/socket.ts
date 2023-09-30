@@ -328,12 +328,12 @@ chatNamespace.on('connection', (socket: Socket) => {
       })
     if (chat) {
       let messages = cache.get(chatId) || []
-      messages.push(...(await MakeMessageData(chat.messages)))
+      messages = [...await MakeMessageData(chat.messages), ...messages]
+      console.log(messages)
       cache.set(chatId, messages)
     }
-    // socket.emit('more messages', await MakeMessageData(chat?.messages || []) || [])
     const message = chat?.messages.length
-    socket.emit('more messages', cache.get(chatId)?.slice((message) ? - message : - 0))
+    socket.emit('more messages', cache.get(chatId)?.slice(0, (message) ? message : 0))
   })
 
   socket.on('disconnect', () => {
