@@ -321,7 +321,7 @@ chatNamespace.on('connection', (socket: Socket) => {
     const chat = await Chat.findById(chatId)
       .populate<{ messages: IMessageDocument[] }>({
         path: 'messages',
-        match: { createdAt: { $lt: timestamp } },
+        match: { createdAt: { $lt: new Date(timestamp) } },
         options: { sort: { createdAt: -1 }, limit: 30 },
       })
     if (chat) {
