@@ -242,10 +242,12 @@ chatNamespace.on('connection', (socket: Socket) => {
     console.log(chatNamespace.adapter.rooms)
     if (!cache.has(chatId)) {
       const chat = await Chat.findById(chatId)
-        .populate<{ messages: IMessageDocument[] }>('messages')
-        .slice('messages', -30)
+        .populate<{ messages: IMessageDocument[] }>({
+          path: 'messages',
+          options: { sort: { 'createdAt': -1 }, limit: 30 }
+      })
       if (chat) {
-        cache.set(chatId, await MakeMessageData(chat.messages || []))
+        cache.set(chatId, await MakeMessageData(chat.messages?.reverse() || []))
       }
     }
     socket.emit('room messages', cache.get(chatId)?.slice(-30))
