@@ -315,21 +315,20 @@ chatNamespace.on('connection', (socket: Socket) => {
     cache.set(chatId, messages)
     chatNamespace.to(chatId).emit('receive message', response)
   })
-
   socket.on('request messages', async (chatId, timestamp) => {
     await SaveCacheById(chatId)
     const chat = await Chat.findById(chatId)
       .populate<{ messages: IMessageDocument[] }>({
         path: 'messages',
-        match: { createdAt: { $lt: new Date(timestamp) } },
-        options: { sort: { createdAt: -1 }, limit: 30 },
+        match: { createdAt: { $lt: new Date(timestamp).toISOString() } },
+        options: { sort: { createdAt: 1 }, limit: 30 },
       })
     if (chat) {
       let messages = cache.get(chatId) || []
       messages.push(...(await MakeMessageData(chat.messages)))
       cache.set(chatId, messages)
     }
-    socket.emit('more messages', cache.get(chatId)?.slice(-30))
+    socket.emit('more messages', await MakeMessageData(chat?.messages || []) || [])
   })
 
   socket.on('disconnect', () => {
