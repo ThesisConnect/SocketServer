@@ -256,7 +256,8 @@ chatNamespace.on('connection', (socket: Socket) => {
   socket.on('leave room', async (chatId) => {
     await socket.leave(chatId)
     console.log('User left room:', chatId)
-    if (chatNamespace.adapter.rooms.get(chatId)?.size === 0) {
+    if (!chatNamespace.adapter.rooms.get(chatId)) {
+      console.log("No User Here Save and Clear Cache")
       await SaveCacheById(chatId)
       cache.delete(chatId)
     }
@@ -330,7 +331,9 @@ chatNamespace.on('connection', (socket: Socket) => {
       messages.push(...(await MakeMessageData(chat.messages)))
       cache.set(chatId, messages)
     }
-    socket.emit('more messages', await MakeMessageData(chat?.messages || []) || [])
+    // socket.emit('more messages', await MakeMessageData(chat?.messages || []) || [])
+    const message = chat?.messages.length
+    socket.emit('more messages', cache.get(chatId)?.slice((message) ? - message : - 0))
   })
 
   socket.on('disconnect', () => {
