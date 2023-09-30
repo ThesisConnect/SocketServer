@@ -317,10 +317,13 @@ chatNamespace.on('connection', (socket: Socket) => {
   })
 
   socket.on('request messages', async (chatId, timestamp) => {
+    await SaveCacheById(chatId)
     const chat = await Chat.findById(chatId)
-      .populate<{ messages: IMessageDocument[] }>('messages')
-      .lt('messages.createdAt', new Date(timestamp))
-      .slice('messages', -30)
+      .populate<{ messages: IMessageDocument[] }>({
+        path: 'messages',
+        match: { createdAt: { $lt: timestamp } },
+        options: { sort: { createdAt: -1 }, limit: 30 },
+      })
     if (chat) {
       let messages = cache.get(chatId) || []
       messages.push(...(await MakeMessageData(chat.messages)))
