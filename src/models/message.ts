@@ -6,8 +6,8 @@ export interface IMessage {
   user_id: string
   content: string
   type: 'text' | 'file'
-  createdAt: string
-  updatedAt: string
+  createdAt: Date
+  updatedAt: Date
 }
 
 export interface IMessageDocument extends IMessage, Document {
@@ -36,11 +36,11 @@ const messageSchema = new Schema<IMessageDocument, IMessageDocument>({
     required: true,
   },
   createdAt: {
-    type: String,
+    type: Date,
     required: true,
   },
   updatedAt: {
-    type: String,
+    type: Date,
     required: true,
   },
 })
