@@ -326,7 +326,7 @@ chatNamespace.on('connection', (socket: Socket) => {
       messages.push(...(await MakeMessageData(chat.messages)))
       cache.set(chatId, messages)
     }
-    socket.emit('receive message', cache.get(chatId)?.slice(-30))
+    socket.emit('more messages', cache.get(chatId)?.slice(-30))
   })
 
   socket.on('disconnect', () => {
