@@ -257,7 +257,7 @@ chatNamespace.on('connection', (socket: Socket) => {
     await socket.leave(chatId)
     console.log('User left room:', chatId)
     if (!chatNamespace.adapter.rooms.get(chatId)) {
-      console.log("No User Here Save and Clear Cache")
+      console.log("NoOnehere save and clear cache")
       await SaveCacheById(chatId)
       cache.delete(chatId)
     }
@@ -324,12 +324,12 @@ chatNamespace.on('connection', (socket: Socket) => {
       .populate<{ messages: IMessageDocument[] }>({
         path: 'messages',
         match: { createdAt: { $lt: new Date(timestamp).toISOString() } },
-        options: { sort: { createdAt: 1 }, limit: 30 },
+        options: { sort: { createdAt: -1 }, limit: 30},
       })
+    console.log(chat?.messages.length)
     if (chat) {
       let messages = cache.get(chatId) || []
-      messages = [...await MakeMessageData(chat.messages), ...messages]
-      console.log(messages)
+      messages = [...await MakeMessageData(chat.messages.reverse()), ...messages]
       cache.set(chatId, messages)
     }
     const message = chat?.messages.length
