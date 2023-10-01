@@ -319,21 +319,50 @@ chatNamespace.on('connection', (socket: Socket) => {
     chatNamespace.to(chatId).emit('receive message', response)
   })
   socket.on('request messages', async (chatId, timestamp) => {
-    await SaveCacheById(chatId)
-    const chat = await Chat.findById(chatId)
+
+    //find index of timestamp
+    const messages = cache.get(chatId) || []
+    let index = messages.findIndex((message) => message.createdAt.getTime() === timestamp)
+    console.log(index)
+
+    if (index < 30) {
+      const chat = await Chat.findById(chatId)
       .populate<{ messages: IMessageDocument[] }>({
         path: 'messages',
         match: { createdAt: { $lt: new Date(timestamp).toISOString() } },
-        options: { sort: { createdAt: -1 }, limit: 30},
+        options: { sort: { createdAt: -1 }, limit: 30 - index},
       })
-    console.log(chat?.messages.length)
-    if (chat) {
-      let messages = cache.get(chatId) || []
-      messages = [...await MakeMessageData(chat.messages.reverse()), ...messages]
-      cache.set(chatId, messages)
+      console.log(chat?.messages.length)
+      if (chat) {
+        let cache_messages = cache.get(chatId) || []
+        cache_messages = [...await MakeMessageData(chat.messages.reverse()), ...cache_messages]
+        cache.set(chatId, cache_messages)
+      }
+      index = chat?.messages.length? chat?.messages.length : 0
     }
-    const message = chat?.messages.length
-    socket.emit('more messages', cache.get(chatId)?.slice(0, (message) ? message : 0))
+    console.log(Math.max(index-30, 0), index)
+    const emit_messages = cache.get(chatId)?.slice(Math.max(index-30, 0), index) //return 30 messages before index messages
+    // console.log(emit_messages? emit_messages[0] : "undefined");
+    socket.emit('more messages', emit_messages)
+
+
+    // const message = chat?.messages.length
+    // socket.emit('more messages', cache.get(chatId)?.slice(0, (message) ? message : 0))
+
+    // await SaveCacheById(chatId)
+    // const chat = await Chat.findById(chatId)
+    //   .populate<{ messages: IMessageDocument[] }>({
+    //     path: 'messages',
+    //     match: { createdAt: { $lt: new Date(timestamp).toISOString() } },
+    //     options: { sort: { createdAt: -1 }, limit: 30},
+    //   })
+    // if (chat) {
+    //   let messages = cache.get(chatId) || []
+    //   messages = [...await MakeMessageData(chat.messages.reverse()), ...messages]
+    //   cache.set(chatId, messages)
+    // }
+    // const message = chat?.messages.length
+    // socket.emit('more messages', cache.get(chatId)?.slice(0, (message) ? message : 0))
   })
 
   socket.on('disconnect', () => {
