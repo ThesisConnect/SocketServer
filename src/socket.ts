@@ -3,7 +3,6 @@ import express, { Request, Response } from 'express'
 import { uuidv4 } from '@firebase/util'
 import Chat from './models/chat'
 import User from './models/user'
-import user from './models/user'
 import File from './models/file'
 import dotenv from 'dotenv'
 import mongoose from 'mongoose'
@@ -18,6 +17,7 @@ import Folder from './models/folder'
 dotenv.config()
 
 const MAX_RETRIES = 10
+const MAX_MESSAGES = 300
 let retries = 0
 
 const options = {
@@ -79,7 +79,7 @@ chatNamespace.use(async (socket, next) => {
     if (decoded.email_verified === false) throw new Error('Email not verified!')
     // console.log(decoded)
     if (!decoded) throw new Error('Validation failed!')
-    const u = await user.findById(decoded.uid)
+    const u = await User.findById(decoded.uid)
     if (!u) throw new Error('Invalid user!')
     socket.data.user = {
       uid: decoded.uid,
@@ -314,6 +314,10 @@ chatNamespace.on('connection', (socket: Socket) => {
       updatedAt: new Date(),
     }
     let messages = cache.get(chatId) || []
+    //if cache reach limit
+    if (messages.length >= MAX_MESSAGES) {
+      message = message.slice(message.length)
+    }
     messages.push(response)
     cache.set(chatId, messages)
     chatNamespace.to(chatId).emit('receive message', response)
@@ -322,19 +326,22 @@ chatNamespace.on('connection', (socket: Socket) => {
 
     //find index of timestamp
     const messages = cache.get(chatId) || []
-    let index = messages.findIndex((message) => message.createdAt.getTime() === timestamp)
-    console.log(index)
+    let index = messages.findIndex((message) => message.createdAt.toISOString() === timestamp)
+    console.log("index:", index)
 
     if (index < 30) {
       const chat = await Chat.findById(chatId)
       .populate<{ messages: IMessageDocument[] }>({
         path: 'messages',
         match: { createdAt: { $lt: new Date(timestamp).toISOString() } },
-        options: { sort: { createdAt: -1 }, limit: 30 - index},
+        options: { sort: { createdAt: -1 }, limit: 30 - Math.max(index, 0)}
       })
-      console.log(chat?.messages.length)
       if (chat) {
         let cache_messages = cache.get(chatId) || []
+        if (cache_messages.length >= MAX_MESSAGES || index == -1) {
+            socket.emit('more messages', await MakeMessageData(chat.messages.reverse()))
+            return
+        }
         cache_messages = [...await MakeMessageData(chat.messages.reverse()), ...cache_messages]
         cache.set(chatId, cache_messages)
       }
