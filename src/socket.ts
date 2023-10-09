@@ -186,6 +186,39 @@ async function SaveCacheById(chatId: string) {
   } catch (err) {}
 }
 
+async function SaveHalfCacheByID(chatId: string) {
+  try {
+    let data = cache.get(chatId) || []
+    if (data.length == 0) return
+    data = data.slice(0, MAX_MESSAGES/2)
+    let messages = []
+    for (const d of data) {
+      messages.push({
+        _id: d._id,
+        chat_id: chatId,
+        user_id: d.uid,
+        content: typeof d.content !== 'string' ? d.content.fileID : d.content,
+        type: d.type,
+        createdAt: d.createdAt,
+        updatedAt: d.updatedAt,
+      })
+    }
+    const chat = await Chat.findById(chatId)
+    if (chat) {
+      await chat.updateOne({
+        $addToSet: {
+          messages: messages.map((message) => {
+            return message._id
+          }),
+        },
+      })
+      try {
+        await Message.insertMany(messages, { ordered: false })
+      } catch (err) {}
+    }
+  } catch (err) {}
+}
+
 setInterval(SaveCache, 60 * 1000)
 
 async function MakeMessageData(
@@ -316,7 +349,8 @@ chatNamespace.on('connection', (socket: Socket) => {
     let messages = cache.get(chatId) || []
     //if cache reach limit
     if (messages.length >= MAX_MESSAGES) {
-      message = message.slice(message.length)
+      SaveHalfCacheByID(chatId)
+      message = message.slice(MAX_MESSAGES/2)
     }
     messages.push(response)
     cache.set(chatId, messages)
